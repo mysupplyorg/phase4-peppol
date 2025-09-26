@@ -16,15 +16,13 @@
  */
 package com.mysupply.phase4.peppolstandalone;
 
-import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
-import javax.annotation.concurrent.Immutable;
-
-import com.helger.commons.datetime.PDTFactory;
+import com.helger.annotation.concurrent.Immutable;
 import com.helger.config.fallback.IConfigWithFallback;
 import com.helger.peppol.servicedomain.EPeppolNetwork;
-import com.helger.peppolid.peppol.Pfuoi430;
 import com.helger.phase4.config.AS4Configuration;
+
+import jakarta.annotation.Nonnull;
+import jakarta.annotation.Nullable;
 
 @Immutable
 public final class APConfig
@@ -64,13 +62,6 @@ public final class APConfig
   public static String getPhase4ApiRequiredToken ()
   {
     return getConfig ().getAsString ("phase4.api.requiredtoken");
-  }
-
-  public static boolean isUsePFUOI430 ()
-  {
-    // Mandatory per May 15th 2025 only
-    return getConfig ().getAsBoolean ("peppol.pfuoi430",
-                                      PDTFactory.getCurrentLocalDate ().compareTo (Pfuoi430.VALID_FROM) >= 0);
   }
 
   @Nullable

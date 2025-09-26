@@ -18,7 +18,7 @@ package com.mysupply.phase4.peppolstandalone;
 
 import org.junit.jupiter.api.Test;
 
-import com.helger.commons.mock.SPITestHelper;
+import com.helger.unittestext.SPITestHelper;
 
 /**
  * Test SPI definitions

@@ -2,7 +2,7 @@
 
 This an example standalone implementation of [phase4](https://github.com/phax/phase4) for the Peppol Network.
 
-This is a demo application and NOT ready for production use.
+This is a demo application and NOT ready for production use (of course phase4 itself is ready for production use).
 Use it as a template to add your own code.
 
 **Note:** because it is demo code, no releases are created - you have to modify it anyway.
@@ -27,13 +27,17 @@ Since 2025-01-31 all the sending APIs mentioned below also require the HTTP Head
 What value that is, depends on the configuration property `phase4.api.requiredtoken`.
 The pre-configured value is `NjIh9tIx3Rgzme19mGIy` and should be changed in your own setup.
 
-Since 2025-02-04 instead of providing two different APIs (`/sendtest` and `/sendprod`) only one URL (`/sendas4`)
-is provided, and the actual Peppol Network choice is done based on the `peppol.stage` configuration parameter.
-The same applies to sending the prebuild SBDH - the API changed from `/sendsbdhtest` to `/sendsbdh`.
+The actual Peppol Network choice (test or production network) is done based on the `peppol.stage` configuration parameter.
+
+To send to an AS4 endpoint use this URL (the SBDH is built inside):
+```
+mysupply - jlm - should NOT be used.
+/sendas4/{senderId}/{receiverId}/{docTypeId}/{processId}/{countryC1}
+```
 
 To send to an AS4 endpoint use this URL when the SBDH is already available (especially for Peppol Testbed):
 ```
-/send
+/sendsbdh
 ```
 
 In both cases, the payload to send must be the XML business document (like the UBL Invoice).
@@ -111,6 +115,15 @@ The following configuration properties are contained by default:
    the SML to be used and the CAs against which checks are performed
 * **`peppol.seatid`** - defines your Peppol Seat ID. It could be taken from your AP certificate as well,
    but this way it is a bit easier.
+* **`peppol.owner.countrycode`** - defines the country code of you as a Peppol Service Provider. Use the
+   2-letter country code (as in `AT` for Austria). This is required to send the Peppol Reports to
+   OpenPeppol.
+* **`peppol.reporting.senderid`** - the sending Peppol Participant ID. For now, this can be e.g. the VAT
+   number or organisational number of you as a Service Provider. In **the future** this will most likely need
+   to be an SPID (using the `0242` participant scheme ID). Example value: `9915:TestReportSender`. This will be used
+   as the sending Participant ID for sending Peppol Reports to OpenPeppol.
+* **`peppol.reporting.scheduled`** - a boolean value to indicate, if the Peppol TSR and EUSR reports should
+   automatically sent be towards OpenPeppol on a monthly basis. The cron rule is place is `0 0 5 2 * *`.
 
 ## Running
 

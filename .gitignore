@@ -6,8 +6,9 @@ bin/
 target/
 generated/
 
-*.properties
+private-*.properties
 *.p12
 *.jks
+.DS_Store
 .idea/
 /src/main/java/com/helger/phase4/peppolstandalone/

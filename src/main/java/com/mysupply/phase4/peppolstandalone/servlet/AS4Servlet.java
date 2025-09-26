@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-204 Philip Helger (www.helger.com)
+ * Copyright (C) 2023-2025 Philip Helger (www.helger.com)
  * philip[at]helger[dot]com
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
@@ -16,9 +16,9 @@
  */
 package com.mysupply.phase4.peppolstandalone.servlet;
 
-import com.helger.commons.http.EHttpMethod;
-import com.helger.commons.string.StringHelper;
-import com.helger.commons.url.URLHelper;
+import com.helger.base.string.StringHelper;
+import com.helger.base.url.URLHelper;
+import com.helger.http.EHttpMethod;
 import com.helger.phase4.crypto.AS4CryptoFactoryInMemoryKeyStore;
 import com.helger.phase4.incoming.AS4IncomingProfileSelectorConstant;
 import com.helger.phase4.incoming.AS4RequestHandler;
@@ -35,11 +35,11 @@ import com.helger.smpclient.peppol.SMPClientReadOnly;
 import com.helger.web.scope.IRequestWebScopeWithoutResponse;
 import com.helger.xservlet.AbstractXServlet;
 
-import javax.annotation.Nonnull;
+import jakarta.annotation.Nonnull;
 
-public class AS4Servlet extends AbstractXServlet
+public class SpringBootAS4Servlet extends AbstractXServlet
 {
-  public AS4Servlet()
+  public SpringBootAS4Servlet ()
   {
     // Multipart is handled specifically inside
     settings ().setMultipartEnabled (false);
@@ -67,7 +67,7 @@ public class AS4Servlet extends AbstractXServlet
         // Specific setters, dependent on a specific AS4 profile ID
         // This example code only uses the global one (if any)
         final String sAS4ProfileID = AS4ProfileSelector.getDefaultAS4ProfileID ();
-        if (StringHelper.hasText (sAS4ProfileID))
+        if (StringHelper.isNotEmpty (sAS4ProfileID))
         {
           aRequestHandler.setPModeResolver (new AS4DefaultPModeResolver (sAS4ProfileID));
           aRequestHandler.setIncomingProfileSelector (new AS4IncomingProfileSelectorConstant (sAS4ProfileID));
