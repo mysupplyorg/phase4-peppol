@@ -1,6 +1,7 @@
 package com.mysupply.phase4.persistence;
 
-import com.helger.commons.annotation.IsSPIInterface;
+import com.helger.annotation.style.IsSPIInterface;
+
 import com.mysupply.phase4.domain.Document;
 import org.springframework.data.jpa.repository.JpaRepository;
 

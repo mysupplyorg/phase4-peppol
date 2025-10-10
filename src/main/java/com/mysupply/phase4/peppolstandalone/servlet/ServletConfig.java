@@ -21,7 +21,19 @@ import java.security.KeyStore;
 import java.security.cert.X509Certificate;
 import java.time.YearMonth;
 
-import javax.annotation.Nonnull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.bridge.SLF4JBridgeHandler;
+import org.springframework.boot.web.servlet.ServletRegistrationBean;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import com.helger.base.debug.GlobalDebug;
+import com.helger.base.exception.InitializationException;
+import com.helger.base.state.ETriState;
+import com.helger.base.string.StringHelper;
+import com.helger.base.url.URLHelper;
+import com.helger.mime.CMimeType;
 
 import com.helger.peppol.security.PeppolTrustedCA;
 import com.helger.peppol.servicedomain.EPeppolNetwork;
@@ -30,19 +42,7 @@ import com.helger.security.certificate.ECertificateCheckResult;
 import com.helger.security.certificate.TrustedCAChecker;
 import com.mysupply.phase4.peppolstandalone.APConfig;
 import com.mysupply.phase4.peppolstandalone.reporting.AppReportingHelper;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.bridge.SLF4JBridgeHandler;
-import org.springframework.boot.web.servlet.ServletRegistrationBean;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 
-import com.helger.commons.debug.GlobalDebug;
-import com.helger.commons.exception.InitializationException;
-import com.helger.commons.mime.CMimeType;
-import com.helger.commons.state.ETriState;
-import com.helger.commons.string.StringHelper;
-import com.helger.commons.url.URLHelper;
 import com.helger.httpclient.HttpDebugger;
 import com.helger.phase4.config.AS4Configuration;
 import com.helger.phase4.crypto.AS4CryptoFactoryConfiguration;
@@ -64,8 +64,10 @@ import com.helger.web.scope.mgr.WebScopeManager;
 import com.helger.xservlet.requesttrack.RequestTrackerSettings;
 
 import jakarta.activation.CommandMap;
+import jakarta.annotation.Nonnull;
 import jakarta.annotation.PreDestroy;
 import jakarta.servlet.ServletContext;
+
 import org.springframework.scheduling.annotation.Scheduled;
 
 @Configuration
@@ -85,13 +87,13 @@ public class ServletConfig {
     }
 
     @Bean
-    public ServletRegistrationBean <AS4Servlet> servletRegistrationBean (final ServletContext ctx)
+    public ServletRegistrationBean <SpringBootAS4Servlet> servletRegistrationBean (final ServletContext ctx)
     {
         // Must be called BEFORE the servlet is instantiated
         _init (ctx);
 
         // Instantiate and register Servlet
-        final ServletRegistrationBean <AS4Servlet> bean = new ServletRegistrationBean <> (new AS4Servlet (),
+        final ServletRegistrationBean <SpringBootAS4Servlet> bean = new ServletRegistrationBean <> (new SpringBootAS4Servlet (),
                 true,
                 "/as4");
         bean.setLoadOnStartup (1);
@@ -139,8 +141,8 @@ public class ServletConfig {
             final String sServletContextPath = ServletHelper.getServletContextBasePath (aSC);
             // Get the data path
             final String sDataPath = AS4Configuration.getDataPath ();
-            if (StringHelper.hasNoText (sDataPath))
-                throw new InitializationException ("No data path was provided!");
+            if (StringHelper.isEmpty (sDataPath))
+                throw new InitializationException("No data path was provided!");
             final boolean bFileAccessCheck = false;
             // Init the IO layer
             WebFileIO.initPaths (new File (sDataPath).getAbsoluteFile (), sServletContextPath, bFileAccessCheck);
@@ -231,13 +233,13 @@ public class ServletConfig {
         // the validity is crosscheck against the owning SMP
         final String sSMPURL = APConfig.getMySmpUrl ();
         final String sAPURL = AS4Configuration.getThisEndpointAddress ();
-        if (StringHelper.hasText (sSMPURL) && StringHelper.hasText (sAPURL))
+        if (StringHelper.isNotEmpty (sSMPURL) && StringHelper.isNotEmpty (sAPURL))
         {
             // To process the message even though the receiver is not registered in
             // our AP
             Phase4PeppolDefaultReceiverConfiguration.setReceiverCheckEnabled (true);
             Phase4PeppolDefaultReceiverConfiguration.setSMPClient (new SMPClientReadOnly (URLHelper.getAsURI (sSMPURL)));
-            Phase4PeppolDefaultReceiverConfiguration.setWildcardSelectionMode (Phase4PeppolDefaultReceiverConfiguration.DEFAULT_WILDCARD_SELECTION_MODE);
+            ////Phase4PeppolDefaultReceiverConfiguration.setWildcardSelectionMode (Phase4PeppolDefaultReceiverConfiguration.DEFAULT_WILDCARD_SELECTION_MODE);
             Phase4PeppolDefaultReceiverConfiguration.setAS4EndpointURL (sAPURL);
             Phase4PeppolDefaultReceiverConfiguration.setAPCertificate (aAPCert);
             LOGGER.info ("phase4 Peppol receiver checks are enabled");

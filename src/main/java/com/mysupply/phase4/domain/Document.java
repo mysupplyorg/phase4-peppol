@@ -17,6 +17,8 @@ public class Document {
     private UUID id;
     private byte[] document;
     private Instant created;
+    private Instant retrieved;
+    private Instant confirmed;
     private DocumentStatus status;
     private String domain;
 
@@ -24,11 +26,11 @@ public class Document {
 
     }
 
-    public Document(byte[] document) {
+    public Document(byte[] document, String domain) {
         this.document = document;
         this.created = Instant.now();
         this.status = DocumentStatus.Created;
-        this.domain = "??";
+        this.domain = domain;
     }
 
     public byte[] getDocument() {
@@ -42,4 +44,6 @@ public class Document {
     public UUID getId() {
         return id;
     }
+
+
 }
