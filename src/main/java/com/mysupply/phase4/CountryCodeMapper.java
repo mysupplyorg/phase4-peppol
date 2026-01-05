@@ -2,6 +2,7 @@ package com.mysupply.phase4;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.*;
 
@@ -9,7 +10,8 @@ import java.util.*;
  * Java conversion of the C# CountryCodeMapper class.
  * Maps country codes based on endpoint types and GLN values.
  */
-public class CountryCodeMapper {
+@Component
+public class CountryCodeMapper implements ICountryCodeMapper {
 
     private static final Logger logger = LoggerFactory.getLogger(CountryCodeMapper.class);
 
@@ -222,6 +224,26 @@ public class CountryCodeMapper {
         for (int index = fromValue; index <= toValue; index++) {
             map.put(index, countryCode);
         }
+    }
+
+
+
+    /**
+     * Map country code based on endpoint type and value.
+     * @param endpoint The endpoint, consists of 'endpointType:endpointValue'.
+     * @return The mapped country code
+     */
+    public String mapCountryCode(String endpoint) {
+        if (endpoint == null || endpoint.isEmpty()) {
+            throw new IllegalArgumentException("Endpoint must not be null or empty");
+        }
+        String[] parts = endpoint.split(":", 2);
+        if (parts.length != 2) {
+            throw new IllegalArgumentException("Invalid endpoint format: '" + endpoint + "'. Expected format: 'type:value'");
+        }
+        String endpointType = parts[0];
+        String endpointValue = parts[1];
+        return mapCountryCode(endpointType, endpointValue);
     }
 
     /**

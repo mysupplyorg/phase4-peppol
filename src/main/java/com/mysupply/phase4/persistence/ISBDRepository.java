@@ -9,4 +9,8 @@ import java.util.UUID;
 
 @IsSPIInterface
 public interface ISBDRepository extends JpaRepository<Document, UUID> {
+
+    Document get(String vaxDomain, String something);
+
+
 }

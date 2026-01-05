@@ -20,8 +20,11 @@ import com.helger.peppolid.IParticipantIdentifier;
 import com.helger.phase4.peppol.Phase4PeppolSender;
 import com.helger.smpclient.peppol.SMPClient;
 import com.helger.smpclient.peppol.SMPClientReadOnly;
+import com.mysupply.phase4.ICountryCodeMapper;
+import com.mysupply.phase4.persistence.ISBDRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -44,6 +47,58 @@ import com.helger.peppolid.factory.PeppolIdentifierFactory;
 public class PeppolSenderController {
     static final String HEADER_X_TOKEN = "X-Token";
     private static final Logger LOGGER = LoggerFactory.getLogger(PeppolSenderController.class);
+
+    @Autowired
+    private ICountryCodeMapper countryCodeMapper;
+
+    @Autowired
+    private ISBDRepository sbdRepository;
+
+    @Autowired
+    private void setSbdRepository(ISBDRepository sbdRepository) {
+        this.sbdRepository = sbdRepository;
+    }
+
+    @Autowired
+    private void setCountryCodeMapper(ICountryCodeMapper countryCodeMapper) {
+        this.countryCodeMapper = countryCodeMapper;
+    }
+
+    /// Gets a list of documents that have not yet been retrieved.
+    @PostMapping(path = "/getNotRetrievedDocument", produces = MediaType.APPLICATION_JSON_VALUE)
+    public String getNotRetrievedDocument(@RequestHeader(HEADER_X_TOKEN) final String xtoken) {
+
+        if (StringHelper.isEmpty(xtoken))
+        {
+            LOGGER.error("The specific token header is missing");
+            throw new HttpForbiddenException();
+        }
+        if (!xtoken.equals(APConfig.getPhase4ApiRequiredToken()))
+        {
+            LOGGER.error("The specified token value does not match the configured required token");
+            throw new HttpForbiddenException();
+        }
+
+    return "";
+    }
+
+
+    @PostMapping(path = "/mapEndpointToCountryCode", produces = MediaType.TEXT_PLAIN_VALUE)
+    public String mapEndpointToCountryCode(@RequestHeader(HEADER_X_TOKEN) final String xtoken,
+                                           @RequestBody final String endpoint) {
+        if (StringHelper.isEmpty(xtoken))
+        {
+            LOGGER.error("The specific token header is missing");
+            throw new HttpForbiddenException();
+        }
+        if (!xtoken.equals(APConfig.getPhase4ApiRequiredToken()))
+        {
+            LOGGER.error("The specified token value does not match the configured required token");
+            throw new HttpForbiddenException();
+        }
+
+        return this.countryCodeMapper.mapCountryCode(endpoint);
+    }
 
     @PostMapping(path = "/send", produces = MediaType.APPLICATION_JSON_VALUE)
     public String sendPeppolSbdhMessage(@RequestHeader(HEADER_X_TOKEN) final String xtoken,

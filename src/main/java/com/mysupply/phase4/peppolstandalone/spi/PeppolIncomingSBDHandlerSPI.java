@@ -125,7 +125,7 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
 
                     // TODO determine correct values
                     final String sC3ID = aPeppolSBD.getReceiverAsIdentifier().getURIEncoded();
-                    final String sC4CountryCode = "DK"; // incorrect, we need to determine the country code like in VAX
+                    final String sC4CountryCode = this.countryCodeMapper.mapCountryCode(aPeppolSBD.getReceiverScheme(), aPeppolSBD.getReceiverValue()) ;// "DK"; // incorrect, we need to determine the country code like in VAX
                     final String sEndUserID = "EndUserID";
                     final PeppolReportingItem aReportingItem = Phase4PeppolServletMessageProcessorSPI.createPeppolReportingItemForReceivedMessage(aUserMessage,
                             aPeppolSBD,
