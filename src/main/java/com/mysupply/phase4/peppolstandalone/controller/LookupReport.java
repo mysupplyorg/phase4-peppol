@@ -6,9 +6,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class LookupReport {
     private boolean lookupCompleted;
     private boolean receiverExist;
+    private String errorMessage;
 
     public boolean isLookupCompleted() {
         return lookupCompleted;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 
     public void setLookupCompleted(boolean lookupCompleted) {
@@ -28,7 +37,7 @@ public class LookupReport {
             ObjectMapper mapper = new ObjectMapper();
             return mapper.writeValueAsString(this);
         } catch (JsonProcessingException e) {
-            return "{\"lookupCompleted\":false,\"receiverExist\":false,\"error\":\"" + e.getMessage() + "\"}";
+            return "{\"lookupCompleted\":false,\"receiverExist\":false,\"errorMessage\":\"" + e.getMessage() + "\"}";
         }
     }
 }

@@ -91,22 +91,44 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
             String process = aPeppolSBD.getProcessAsIdentifier().getURIEncoded();
             String countryC1 = aPeppolSBD.getCountryC1();
 
-            LOGGER.info("Received a new Peppol Message");
-            LOGGER.info("  C1 = " + c1);
-            LOGGER.info("  C2 = " + c2);
-            LOGGER.info("  C3 = " + sMyPeppolSeatID);
-            LOGGER.info("  C4 = " + c4);
-            LOGGER.info("  DocType = " + docType);
-            LOGGER.info("  Process = " + process);
-            LOGGER.info("  CountryC1 = " + c1);
-            LOGGER.info("  CountryC2 = " + countryC1);
-            LOGGER.info("  CountryC4 = " + c4);
+            StringBuilder sb = new StringBuilder();
+            sb.append("Received a new Peppol Message").append(System.lineSeparator())
+                .append("  C1 = ").append(c1).append(System.lineSeparator())
+                .append("  C2 = ").append(c2).append(System.lineSeparator())
+                .append("  C3 = ").append(sMyPeppolSeatID).append(System.lineSeparator())
+                .append("  C4 = ").append(c4).append(System.lineSeparator())
+                .append("  DocType = ").append(docType).append(System.lineSeparator())
+                .append("  Process = ").append(process).append(System.lineSeparator())
+                .append("  CountryC1 = ").append(c1).append(System.lineSeparator())
+                .append("  CountryC2 = ").append(countryC1).append(System.lineSeparator())
+                .append("  CountryC4 = ").append(c4);
+            LOGGER.info(sb.toString());
         } catch (NullPointerException ex) {
             LOGGER.error("An error occurred.", ex);
         }
 
         try {
-            Document documentToStore = new Document(aSBDBytes, this.GetDomain(aHeaders));
+            String c1 = aPeppolSBD.getSenderAsIdentifier().getURIEncoded();
+            String c4 = aPeppolSBD.getReceiverAsIdentifier().getURIEncoded();
+            String docType = aPeppolSBD.getDocumentTypeAsIdentifier().getURIEncoded();
+            String process = aPeppolSBD.getProcessAsIdentifier().getURIEncoded();
+            String domain = this.GetDomain(aHeaders);
+            String messageID = aUserMessage.getMessageInfo().getMessageId();
+            String conversationID = null;// aUserMessage.getMessageInfo().getConversationId();
+            String senderCertificate = CertificateHelper.getPEMEncodedCertificate(aIncomingState.getSigningCertificate());
+            String receiverCertificate = CertificateHelper.getPEMEncodedCertificate(aIncomingState.getEncryptionCertificate());
+
+
+            Document documentToStore = Document.builder()
+                .data(aSBDBytes)
+                .domain(domain)
+                .senderIdentifier(c1)
+                .receiverIdentifier(c4)
+                .docType(docType)
+                .process(process)
+                    .
+                .build();
+
             this.sbdRepository.save(documentToStore);
             LOGGER.info("SBD saved successfully");
         } catch (Exception ex) {

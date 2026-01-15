@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mysupply.phase4.peppolstandalone.APConfig;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
+import org.springframework.http.ResponseEntity;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -32,7 +33,8 @@ class PeppolSenderControllerTest {
 
             // Call the canSend method directly
             // Dette vil fejle. Den vil forsøge at indlæse peppol.seatid, men det er NULL, så den korrekte App.config er ikke opsat.
-            String result = controller.sendPeppolSbdhMessage("test-token", xmlContent);
+            ResponseEntity<String> response = controller.sendPeppolSbdhMessage("test-token", xmlContent);
+            String result = response.getBody();
 
             // Verify the result is valid JSON
             assertNotNull(result);
@@ -75,7 +77,8 @@ class PeppolSenderControllerTest {
                     .thenReturn(com.helger.peppol.servicedomain.EPeppolNetwork.TEST);
 
             // Call the canSend method directly
-            String result = controller.canSendPeppolSbdhMessage("test-token", xmlContent);
+            ResponseEntity<String> response = controller.canSendPeppolSbdhMessage("test-token", xmlContent);
+            String result = response.getBody();
 
             // Verify the result is valid JSON
             assertNotNull(result);
@@ -138,7 +141,8 @@ class PeppolSenderControllerTest {
                     .thenReturn(com.helger.peppol.servicedomain.EPeppolNetwork.TEST);
 
             // Call with invalid XML
-            String result = controller.canSendPeppolSbdhMessage("test-token", invalidXml);
+            ResponseEntity<String> response = controller.canSendPeppolSbdhMessage("test-token", invalidXml);
+            String result = response.getBody();
 
             // Should return JSON with failed lookup
             assertNotNull(result);
