@@ -2,13 +2,13 @@ package com.mysupply.phase4.peppolstandalone.dto;
 
 import com.mysupply.phase4.domain.Document;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class RetrieveData {
     private UUID id;
     private byte[] data;
-    private Instant created;
+    private OffsetDateTime created;
     private String domain;
     private String senderIdentifier;
     private String receiverIdentifier;
@@ -55,11 +55,11 @@ public class RetrieveData {
         this.data = data;
     }
 
-    public Instant getCreated() {
+    public OffsetDateTime getCreated() {
         return created;
     }
 
-    public void setCreated(Instant created) {
+    public void setCreated(OffsetDateTime created) {
         this.created = created;
     }
 

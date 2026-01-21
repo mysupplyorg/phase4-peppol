@@ -62,14 +62,21 @@ import jakarta.annotation.Nonnull;
 public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHandlerSPI {
     private static final Logger LOGGER = LoggerFactory.getLogger(PeppolIncomingSBDHandlerSPI.class);
 
-    @Autowired
     private ISBDRepository sbdRepository;
 
-    @Autowired
     private ICountryCodeMapper countryCodeMapper;
 
+    private boolean isAutowired = false;
+
     public PeppolIncomingSBDHandlerSPI() {
-        SpringContextHolder.autowireBean(this);
+        // Don't autowire in constructor - context may not be ready yet
+    }
+
+    private void ensureAutowired() {
+        if (!isAutowired) {
+            SpringContextHolder.autowireBean(this);
+            isAutowired = true;
+        }
     }
 
     public void handleIncomingSBD(@Nonnull final IAS4IncomingMessageMetadata aMessageMetadata,
@@ -80,6 +87,9 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
                                   @Nonnull final PeppolSBDHData aPeppolSBD,
                                   @Nonnull final IAS4IncomingMessageState aIncomingState,
                                   @Nonnull final ICommonsList<Ebms3Error> aProcessingErrorMessages) throws Exception {
+
+        // Ensure dependencies are autowired before use
+        ensureAutowired();
 
         final String sMyPeppolSeatID = APConfig.getMyPeppolSeatID ();
         try {
@@ -114,10 +124,16 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
             String process = aPeppolSBD.getProcessAsIdentifier().getURIEncoded();
             String domain = this.GetDomain(aHeaders);
             String messageID = aUserMessage.getMessageInfo().getMessageId();
-            String conversationID = null;// aUserMessage.getMessageInfo().getConversationId();
-            String senderCertificate = CertificateHelper.getPEMEncodedCertificate(aIncomingState.getSigningCertificate());
-            String receiverCertificate = CertificateHelper.getPEMEncodedCertificate(aIncomingState.getEncryptionCertificate());
+            String conversationID = aUserMessage.getCollaborationInfo().getConversationId(); //
+            String senderCertificate = aIncomingState.getSigningCertificate() != null
+                ? aIncomingState.getSigningCertificate().getSubjectX500Principal().getName()
+                : null;
+            String receiverCertificate = aIncomingState.getDecryptingCertificate() != null
+                ? aIncomingState.getDecryptingCertificate().getSubjectX500Principal().getName()
+                : null;
+            String protocol = "peppol-transport-as4-v2_0";// aMessageMetadataaMessageMetadata is of type IAS4IncomingMessageMetadata, so we just hardcode implement information. //
 
+            String f = getEndpointUrl(aHeaders);
 
             Document documentToStore = Document.builder()
                 .data(aSBDBytes)
@@ -126,7 +142,12 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
                 .receiverIdentifier(c4)
                 .docType(docType)
                 .process(process)
-                    .
+                .messageId(messageID)
+                .conversationId(conversationID)
+                .senderCertificate(senderCertificate)
+                .receiverCertificate(receiverCertificate)
+                .protocol(protocol)
+                .dataSize(aSBDBytes.length)
                 .build();
 
             this.sbdRepository.save(documentToStore);
@@ -167,7 +188,45 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
 
     private String GetDomain(HttpHeaderMap aHeaders)
     {
+        String host = aHeaders.getFirstHeaderValue("host");
+        if (host != null) {
+            if (host.contains(":"))
+            {
+                host = host.substring(0, host.indexOf(':'));
+            }
+
+            return host;
+        }
+
         return "?";
+    }
+
+    /**
+     * Gets the full endpoint URL that was called by the sender.
+     * Supports reverse proxy scenarios with X-Forwarded-* headers.
+     */
+    private String getEndpointUrl(HttpHeaderMap aHeaders) {
+        // Check for reverse proxy headers first
+        String host = aHeaders.getFirstHeaderValue("X-Forwarded-Host");
+        if (host == null) {
+            host = aHeaders.getFirstHeaderValue("host");
+        }
+
+        String proto = aHeaders.getFirstHeaderValue("X-Forwarded-Proto");
+        if (proto == null) {
+            proto = "https"; // Default to https for Peppol
+        }
+
+        String path = aHeaders.getFirstHeaderValue("X-Forwarded-Path");
+        if (path == null) {
+            path = "/as4"; // Default AS4 endpoint path
+        }
+
+        if (host != null) {
+            return proto + "://" + host + path;
+        }
+
+        return null;
     }
 
     @Autowired

@@ -18,11 +18,13 @@ package com.mysupply.phase4.peppolstandalone.controller;
 
 import com.helger.peppol.security.PeppolTrustedCA;
 import com.helger.peppolid.IParticipantIdentifier;
+import com.helger.phase4.crypto.AS4CryptoFactoryConfiguration;
 import com.helger.phase4.peppol.Phase4PeppolSender;
 import com.helger.security.certificate.TrustedCAChecker;
 import com.helger.smpclient.peppol.SMPClient;
 import com.helger.smpclient.peppol.SMPClientReadOnly;
 import com.mysupply.phase4.ICountryCodeMapper;
+import com.mysupply.phase4.peppolstandalone.dto.Phase4PeppolSendingReportExtension;
 import com.mysupply.phase4.persistence.ISBDRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -175,7 +177,7 @@ public class PeppolSenderController {
         final ESML eSML = eStage.isProduction() ? ESML.DIGIT_PRODUCTION : ESML.DIGIT_TEST;
         final TrustedCAChecker aApCaChecker = eStage.isProduction () ? PeppolTrustedCA.peppolProductionAP () : PeppolTrustedCA.peppolTestAP();
 
-        final Phase4PeppolSendingReport aSendingReport = new Phase4PeppolSendingReport(eSML);
+        final Phase4PeppolSendingReportExtension aSendingReport = new Phase4PeppolSendingReportExtension(eSML);
 
         final PeppolSBDHData aData;
         try
@@ -214,6 +216,7 @@ public class PeppolSenderController {
                 sCountryCodeC1 + "'");
 
         PeppolSender.sendPeppolMessagePredefinedSbdh(aData, eSML, aApCaChecker, aSendingReport);
+        aSendingReport.setC2Cert(AS4CryptoFactoryConfiguration.getDefaultInstance().getCertificate());
 
         return ResponseEntity.ok(aSendingReport.getAsJsonString());
     }

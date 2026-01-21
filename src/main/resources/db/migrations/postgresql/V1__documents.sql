@@ -2,7 +2,8 @@ CREATE TABLE document
 (
     id                          UUID NOT NULL,
     data                        BYTEA NOT NULL,
-    created                     TIMESTAMP NOT NULL,     -- The time the document was received
+    data_size                   BIGINT NOT NULL DEFAULT 0,  -- The size of the data in bytes
+    created                     TIMESTAMPTZ NOT NULL,   -- The time the document was received
     domain                      VARCHAR NOT NULL,       -- The domain name that received the document (target vax name)
     sender_identifier           VARCHAR NOT NULL,       -- The sender identification from SBDH
     receiver_identifier         VARCHAR NOT NULL,       -- The receiver identification from SBDH
@@ -13,7 +14,7 @@ CREATE TABLE document
     protocol                    VARCHAR NULL,           -- The protocol used (e.g. AS4)
     conversation_id             VARCHAR NULL,           -- The conversation id from the message
     message_id                  VARCHAR NULL,           -- The message id from the message
-    retrieved                   TIMESTAMP NULL,         -- The retrieved timestamp
+    retrieved                   TIMESTAMPTZ NULL,       -- The retrieved timestamp
     vax_id                      UUID NULL,              -- The id the document has in VAX
     retrieved_by_connector_name VARCHAR NULL,           -- The name of the connector that confirmed the document.
     retrieved_by_connector_id   UUID NULL,              -- The id of the connector that confirmed the document.

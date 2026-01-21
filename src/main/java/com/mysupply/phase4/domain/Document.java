@@ -3,7 +3,8 @@ package com.mysupply.phase4.domain;
 import com.mysupply.phase4.persistence.DocumentConstants;
 import jakarta.persistence.*;
 
-import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
 @Entity
@@ -13,7 +14,7 @@ public class Document {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private UUID id;
     private byte[] data;
-    private Instant created;
+    private OffsetDateTime created;
     private String domain;
 
     @Column(name = "sender_identifier")
@@ -43,7 +44,7 @@ public class Document {
     private String messageId;
 
     //private DocumentStatus documentStatus;
-    private Instant retrieved;
+    private OffsetDateTime retrieved;
 
     @Column(name = "vax_id")
     private UUID vaxId;
@@ -57,11 +58,15 @@ public class Document {
     @Column(name = "retrieved_by_connector_name")
     private String retrievedByConnectorName;
 
+    @Column(name = "data_size")
+    private long dataSize;
+
     protected Document() {
     }
 
     private Document(Builder builder) {
         this.data = builder.data;
+        this.dataSize = builder.dataSize;
         this.domain = builder.domain;
         this.senderIdentifier = builder.senderIdentifier;
         this.receiverIdentifier = builder.receiverIdentifier;
@@ -72,7 +77,7 @@ public class Document {
         this.protocol = builder.protocol;
         this.conversationId = builder.conversationId;
         this.messageId = builder.messageId;
-        this.created = Instant.now();
+        this.created = OffsetDateTime.now(ZoneOffset.UTC);
         //this.documentStatus = DocumentStatus.Created;
     }
 
@@ -82,6 +87,7 @@ public class Document {
 
     public static class Builder {
         private byte[] data;
+        private long dataSize;
         private String domain;
         private String senderIdentifier;
         private String receiverIdentifier;
@@ -95,6 +101,11 @@ public class Document {
 
         public Builder data(byte[] data) {
             this.data = data;
+            return this;
+        }
+
+        public Builder dataSize(long dataSize) {
+            this.dataSize = dataSize;
             return this;
         }
 
@@ -162,11 +173,15 @@ public class Document {
         return data;
     }
 
-    public Instant getCreated() {
+    public long getDataSize() {
+        return this.dataSize;
+    }
+
+    public OffsetDateTime getCreated() {
         return this.created;
     }
 
-    public Instant getRetrieved() {
+    public OffsetDateTime getRetrieved() {
         return this.retrieved;
     }
 
@@ -224,14 +239,20 @@ public class Document {
 
     // Setters
     public void setData(byte[] data) {
+
         this.data = data;
+
     }
 
-    public void setCreated(Instant created) {
+    public void setDataSize(long dataSize) {
+        this.dataSize = dataSize;
+    }
+
+    public void setCreated(OffsetDateTime created) {
         this.created = created;
     }
 
-    public void setRetrieved(Instant retrieved) {
+    public void setRetrieved(OffsetDateTime retrieved) {
         this.retrieved = retrieved;
     }
 
@@ -277,11 +298,11 @@ public class Document {
         this.retrievedByInstanceName = retrievedByInstanceName;
     }
 
-    public void setRetrievedByConnector(UUID retrievedByConnectorId) {
+    public void setRetrievedByConnectorId(UUID retrievedByConnectorId) {
         this.retrievedByConnectorId = retrievedByConnectorId;
     }
 
-    public void setRetrievedByConnector(String retrievedByConnectorName) {
+    public void setRetrievedByConnectorName(String retrievedByConnectorName) {
         this.retrievedByConnectorName = retrievedByConnectorName;
     }
 
