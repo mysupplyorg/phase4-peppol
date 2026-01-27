@@ -16,6 +16,7 @@
  */
 package com.mysupply.phase4.peppolstandalone.controller;
 
+import com.helger.phase4.config.AS4Configuration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -346,13 +347,23 @@ public final class PeppolSender
 
       if (eResult.isSuccess ())
       {
+        new Thread(() -> {
         // TODO determine the enduser ID of the outbound message
         // In many simple cases, this might be the sender's participant ID
         final String sEndUserID = APConfig.getMyPeppolSeatID ();
 
-        // TODO Enable Peppol Reporting when ready
-        if (true)
-          aBuilder.createAndStorePeppolReportingItemAfterSending (sEndUserID);
+        final boolean createPeppolReportingItem = AS4Configuration
+                .getConfig()
+                .getAsBoolean("peppol.createReportingItem");
+
+          try {
+            if (createPeppolReportingItem) {
+                  aBuilder.createAndStorePeppolReportingItemAfterSending(sEndUserID);
+            }
+          } catch (final Exception ex) {
+
+            LOGGER.error("Failed to store Peppol Reporting Item", ex);}
+        }).start();
       }
 
       aSendingReport.setAS4SendingResult (eResult);
