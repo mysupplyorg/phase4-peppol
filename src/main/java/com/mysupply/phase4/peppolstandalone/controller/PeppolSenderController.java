@@ -243,6 +243,7 @@ public class PeppolSenderController {
         } catch (final PeppolSBDHDataReadException ex) {
             lookupReport.setLookupCompleted(false);
             lookupReport.setReceiverExist(false);
+            lookupReport.setErrorMessage(ex.toString());
             return ResponseEntity.badRequest().body(lookupReport.convertToJsonString());
         }
 
