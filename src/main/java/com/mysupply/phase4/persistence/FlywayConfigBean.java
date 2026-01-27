@@ -23,7 +23,7 @@ public class FlywayConfigBean {
     public Flyway flyway() {
         String dbUrl = this.env.getRequiredProperty(baseConfigurationPath + "url");
         String dbUsername = this.env.getRequiredProperty(baseConfigurationPath + "username");
-        String dbPassword = this.env.getRequiredProperty(baseConfigurationPath + "password");
+        String dbPassword = this.env.getProperty(baseConfigurationPath + "password");
         String locations = this.env.getRequiredProperty(baseConfigurationPath + "locations");
         String driver = this.env.getRequiredProperty(baseConfigurationPath + "driver");
 
