@@ -73,24 +73,6 @@ public class PeppolSenderController {
         this.countryCodeMapper = countryCodeMapper;
     }
 
-    /// Gets a list of documents that have not yet been retrieved.
-    @PostMapping(path = "/getNotRetrievedDocument", produces = MediaType.APPLICATION_JSON_VALUE)
-    public String getNotRetrievedDocument(@RequestHeader(HEADER_X_TOKEN) final String xtoken) {
-// skal flyttes til anden controller
-        if (StringHelper.isEmpty(xtoken))
-        {
-            LOGGER.error("The specific token header is missing");
-            throw new HttpForbiddenException();
-        }
-        if (!xtoken.equals(APConfig.getPhase4ApiRequiredToken()))
-        {
-            LOGGER.error("The specified token value does not match the configured required token");
-            throw new HttpForbiddenException();
-        }
-
-        return "";
-    }
-
     @GetMapping(path = "/online", produces = MediaType.TEXT_PLAIN_VALUE)
     public ResponseEntity<String> online() {
         // It is a post method, so it can be used from a browser or monitoring tool to check if the service is online.

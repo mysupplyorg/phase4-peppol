@@ -348,10 +348,10 @@ public final class PeppolSender
       {
         // TODO determine the enduser ID of the outbound message
         // In many simple cases, this might be the sender's participant ID
-        final String sEndUserID = "TODO";
+        final String sEndUserID = APConfig.getMyPeppolSeatID ();
 
         // TODO Enable Peppol Reporting when ready
-        if (false)
+        if (true)
           aBuilder.createAndStorePeppolReportingItemAfterSending (sEndUserID);
       }
 
