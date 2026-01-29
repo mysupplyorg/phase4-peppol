@@ -188,6 +188,12 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
 
     private String GetDomain(HttpHeaderMap aHeaders)
     {
+        String forwardedHost = aHeaders.getFirstHeaderValue("X-Forwarded-Host");
+        if (forwardedHost == null) {
+            forwardedHost = aHeaders.getFirstHeaderValue("host");
+            return forwardedHost;
+        }
+
         String host = aHeaders.getFirstHeaderValue("host");
         if (host != null) {
             if (host.contains(":"))
