@@ -16,12 +16,12 @@
 // */
 //package com.helger.phase4.peppolstandalone.spi;
 //
+//import org.jspecify.annotations.NonNull;
 //import org.slf4j.Logger;
 //import org.unece.cefact.namespaces.sbdh.StandardBusinessDocument;
 //import org.w3c.dom.Element;
 //
 //import com.helger.annotation.style.IsSPIImplementation;
-//import com.helger.collection.commons.ICommonsList;
 //import com.helger.http.header.HttpHeaderMap;
 //import com.helger.peppol.reporting.api.PeppolReportingItem;
 //import com.helger.peppol.reporting.api.backend.PeppolReportingBackend;
@@ -30,17 +30,16 @@
 //import com.helger.peppol.sbdh.payload.PeppolSBDHPayloadBinaryMarshaller;
 //import com.helger.peppol.sbdh.spec12.BinaryContentType;
 //import com.helger.peppol.sbdh.spec12.ObjectFactory;
-//import com.helger.phase4.ebms3header.Ebms3Error;
 //import com.helger.phase4.ebms3header.Ebms3UserMessage;
+//import com.helger.phase4.error.AS4ErrorList;
 //import com.helger.phase4.incoming.IAS4IncomingMessageMetadata;
 //import com.helger.phase4.incoming.IAS4IncomingMessageState;
 //import com.helger.phase4.logging.Phase4LoggerFactory;
 //import com.helger.phase4.peppol.servlet.IPhase4PeppolIncomingSBDHandlerSPI;
 //import com.helger.phase4.peppol.servlet.Phase4PeppolServletMessageProcessorSPI;
-//import com.mysupply.phase4.peppolstandalone.APConfig;
+//import com.helger.phase4.peppolstandalone.APConfig;
+//import com.helger.phase4.util.Phase4Exception;
 //import com.helger.security.certificate.CertificateHelper;
-//
-//import jakarta.annotation.Nonnull;
 //
 ///**
 // * This is a way of handling incoming Peppol messages
@@ -52,15 +51,21 @@
 //{
 //  private static final Logger LOGGER = Phase4LoggerFactory.getLogger (CustomPeppolIncomingSBDHandlerSPI.class);
 //
-//  public void handleIncomingSBD (@Nonnull final IAS4IncomingMessageMetadata aMessageMetadata,
-//                                 @Nonnull final HttpHeaderMap aHeaders,
-//                                 @Nonnull final Ebms3UserMessage aUserMessage,
-//                                 @Nonnull final byte [] aSBDBytes,
-//                                 @Nonnull final StandardBusinessDocument aSBD,
-//                                 @Nonnull final PeppolSBDHData aPeppolSBD,
-//                                 @Nonnull final IAS4IncomingMessageState aIncomingState,
-//                                 @Nonnull final ICommonsList <Ebms3Error> aProcessingErrorMessages) throws Exception
+//  public void handleIncomingSBD (@NonNull final IAS4IncomingMessageMetadata aMessageMetadata,
+//                                 @NonNull final HttpHeaderMap aHeaders,
+//                                 @NonNull final Ebms3UserMessage aUserMessage,
+//                                 @NonNull final byte [] aSBDBytes,
+//                                 @NonNull final StandardBusinessDocument aSBD,
+//                                 @NonNull final PeppolSBDHData aPeppolSBD,
+//                                 @NonNull final IAS4IncomingMessageState aIncomingState,
+//                                 @NonNull final AS4ErrorList aProcessingErrorMessages) throws Exception
 //  {
+//    if (!APConfig.isReceivingEnabled ())
+//    {
+//      LOGGER.info ("Peppol AP receiving is disabled");
+//      throw new Phase4Exception ("Peppol AP receiving is disabled");
+//    }
+//
 //    final String sMyPeppolSeatID = APConfig.getMyPeppolSeatID ();
 //
 //    // Example code snippets how to get data
@@ -82,11 +87,11 @@
 //      // TODO example code on how to identify Factur-X payloads
 //      final Element aXMLPayload = aPeppolSBD.getBusinessMessageNoClone ();
 //      if (ObjectFactory._BinaryContent_QNAME.getLocalPart ().equals (aXMLPayload.getLocalName ()) &&
-//          ObjectFactory._BinaryContent_QNAME.getNamespaceURI ().equals (aXMLPayload.getNamespaceURI ()))
+//        ObjectFactory._BinaryContent_QNAME.getNamespaceURI ().equals (aXMLPayload.getNamespaceURI ()))
 //      {
 //        if ("urn:peppol:doctype:pdf+xml".equals (aPeppolSBD.getStandard ()) &&
-//            "0".equals (aPeppolSBD.getTypeVersion ()) &&
-//            "factur-x".equals (aPeppolSBD.getType ()))
+//          "0".equals (aPeppolSBD.getTypeVersion ()) &&
+//          "factur-x".equals (aPeppolSBD.getType ()))
 //        {
 //          // Handle as Factur-X
 //          BinaryContentType aBinaryContent = new PeppolSBDHPayloadBinaryMarshaller ().read (aXMLPayload);
@@ -116,7 +121,7 @@
 //          // TODO determine correct values for the next three fields
 //          final String sC3ID = sMyPeppolSeatID;
 //          final String sC4CountryCode = "AT";
-//          final String sEndUserID = "EndUserID";
+//          final String sEndUserID = aPeppolSBD.getReceiverAsIdentifier ().getURIEncoded ();
 //
 //          // Create the reporting item
 //          final PeppolReportingItem aReportingItem = Phase4PeppolServletMessageProcessorSPI.createPeppolReportingItemForReceivedMessage (aUserMessage,

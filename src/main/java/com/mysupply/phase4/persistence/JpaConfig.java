@@ -23,6 +23,7 @@ public class JpaConfig {
         em.setDataSource(dataSource);
         em.setPackagesToScan("com.mysupply.phase4.domain"); // Package to scan for entities
         em.setJpaVendorAdapter(new HibernateJpaVendorAdapter());
+        em.setEntityManagerFactoryInterface(jakarta.persistence.EntityManagerFactory.class);
 
         return em;
     }

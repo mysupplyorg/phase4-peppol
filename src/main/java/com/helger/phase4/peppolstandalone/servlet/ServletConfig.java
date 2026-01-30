@@ -21,16 +21,7 @@
 //import java.security.cert.X509Certificate;
 //import java.time.YearMonth;
 //
-//import com.helger.base.state.ETriState;
-//import com.helger.base.url.URLHelper;
-//import jakarta.annotation.Nonnull;
-//
-//import com.helger.base.debug.GlobalDebug;
-//import com.helger.base.exception.InitializationException;
-//import com.helger.base.string.StringHelper;
-//import com.helger.mime.CMimeType;
-//import com.mysupply.phase4.peppolstandalone.servlet.SpringBootAS4Servlet;
-//
+//import org.jspecify.annotations.NonNull;
 //import org.slf4j.Logger;
 //import org.slf4j.bridge.SLF4JBridgeHandler;
 //import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -38,7 +29,13 @@
 //import org.springframework.context.annotation.Configuration;
 //import org.springframework.scheduling.annotation.Scheduled;
 //
+//import com.helger.base.debug.GlobalDebug;
+//import com.helger.base.exception.InitializationException;
+//import com.helger.base.state.ETriState;
+//import com.helger.base.string.StringHelper;
+//import com.helger.base.url.URLHelper;
 //import com.helger.httpclient.HttpDebugger;
+//import com.helger.mime.CMimeType;
 //import com.helger.peppol.reporting.api.backend.IPeppolReportingBackendSPI;
 //import com.helger.peppol.reporting.api.backend.PeppolReportingBackend;
 //import com.helger.peppol.security.PeppolTrustedCA;
@@ -55,7 +52,7 @@
 //import com.helger.phase4.logging.Phase4LoggerFactory;
 //import com.helger.phase4.mgr.MetaAS4Manager;
 //import com.helger.phase4.peppol.servlet.Phase4PeppolDefaultReceiverConfiguration;
-//
+//import com.helger.phase4.peppolstandalone.APConfig;
 //import com.helger.phase4.peppolstandalone.reporting.AppReportingHelper;
 //import com.helger.phase4.profile.peppol.AS4PeppolProfileRegistarSPI;
 //import com.helger.phase4.profile.peppol.PeppolCRLDownloader;
@@ -72,8 +69,6 @@
 //import jakarta.annotation.PreDestroy;
 //import jakarta.servlet.ServletContext;
 //
-//import com.mysupply.phase4.peppolstandalone.APConfig;
-//
 //@Configuration
 //public class ServletConfig
 //{
@@ -84,7 +79,7 @@
 //   *
 //   * @return the {@link IAS4CryptoFactory} to use. May not be <code>null</code>.
 //   */
-//  @Nonnull
+//  @NonNull
 //  public static AS4CryptoFactoryInMemoryKeyStore getCryptoFactoryToUse ()
 //  {
 //    final AS4CryptoFactoryConfiguration ret = AS4CryptoFactoryConfiguration.getDefaultInstance ();
@@ -99,14 +94,14 @@
 //    _init (ctx);
 //
 //    // Instantiate and register Servlet
-//    final ServletRegistrationBean <SpringBootAS4Servlet> bean = new ServletRegistrationBean <> (new SpringBootAS4Servlet(),
+//    final ServletRegistrationBean <SpringBootAS4Servlet> bean = new ServletRegistrationBean <> (new SpringBootAS4Servlet (),
 //                                                                                                true,
 //                                                                                                "/as4");
 //    bean.setLoadOnStartup (1);
 //    return bean;
 //  }
 //
-//  private void _init (@Nonnull final ServletContext aSC)
+//  private void _init (@NonNull final ServletContext aSC)
 //  {
 //    // Do it only once
 //    if (!WebScopeManager.isGlobalScopePresent ())
@@ -118,11 +113,15 @@
 //    }
 //  }
 //
-//  private static void _initGlobalSettings (@Nonnull final ServletContext aSC)
+//  private static void _initGlobalSettings (@NonNull final ServletContext aSC)
 //  {
 //    // Logging: JUL to SLF4J
 //    SLF4JBridgeHandler.removeHandlersForRootLogger ();
 //    SLF4JBridgeHandler.install ();
+//
+//    // Order matters
+//    GlobalDebug.setProductionModeDirect (AS4Configuration.isGlobalProduction ());
+//    GlobalDebug.setDebugModeDirect (AS4Configuration.isGlobalDebug ());
 //
 //    if (GlobalDebug.isDebugMode ())
 //    {
@@ -133,11 +132,11 @@
 //    HttpDebugger.setEnabled (false);
 //
 //    // Sanity check
-//    if (CommandMap.getDefaultCommandMap ().createDataContentHandler (CMimeType.MULTIPART_RELATED.getAsString ()) ==
-//        null)
+//    if (CommandMap.getDefaultCommandMap ()
+//                  .createDataContentHandler (CMimeType.MULTIPART_RELATED.getAsString ()) == null)
 //    {
 //      throw new IllegalStateException ("No DataContentHandler for MIME Type '" +
-//              CMimeType.MULTIPART_RELATED.getAsString () +
+//                                       CMimeType.MULTIPART_RELATED.getAsString () +
 //                                       "' is available. There seems to be a problem with the dependencies/packaging");
 //    }
 //
@@ -148,7 +147,7 @@
 //      // Get the data path
 //      final String sDataPath = AS4Configuration.getDataPath ();
 //      if (StringHelper.isEmpty (sDataPath))
-//        throw new InitializationException("No data path was provided!");
+//        throw new InitializationException ("No data path was provided!");
 //      final boolean bFileAccessCheck = false;
 //      // Init the IO layer
 //      WebFileIO.initPaths (new File (sDataPath).getAbsoluteFile (), sServletContextPath, bFileAccessCheck);
@@ -169,14 +168,8 @@
 //    AS4DumpManager.setOutgoingDumper (new AS4OutgoingDumperFileBased ());
 //  }
 //
-//  @SuppressWarnings ("removal")
 //  private static void _initPeppolAS4 ()
 //  {
-//    // Our server should check all signing certificates of incoming messages if
-//    // they are revoked or not (this is the default setting, but added it here
-//    // for easy modification)
-//    Phase4PeppolDefaultReceiverConfiguration.setCheckSigningCertificateRevocation (true);
-//
 //    // Make sure the download of CRL is using Apache HttpClient and that the
 //    // provided settings are used. If e.g. a proxy is needed to access outbound
 //    // resources, it can be configured here
@@ -205,7 +198,6 @@
 //
 //    final X509Certificate aAPCert = (X509Certificate) aPKE.getCertificate ();
 //
-//    // Note: For eB2B you want to check against the eB2B CA instead
 //    final TrustedCAChecker aAPCAChecker = eStage.isProduction () ? PeppolTrustedCA.peppolProductionAP ()
 //                                                                 : PeppolTrustedCA.peppolTestAP ();
 //
@@ -221,32 +213,29 @@
 //    {
 //      // TODO Change from "true" to "false" once you have a Peppol
 //      // certificate so that an exception is thrown
-//      if (true)
-//        LOGGER.error ("The provided certificate is not a valid Peppol certificate. Check result: " + eCheckResult);
-//      else
+//      if (false)
 //      {
-//        throw new InitializationException ("The provided certificate is not a Peppol certificate. Check result: " +
+//        throw new InitializationException ("The provided certificate is not a Peppol AP certificate. Check result: " +
 //                                           eCheckResult);
 //      }
+//      LOGGER.error ("The provided certificate is not a valid Peppol AP certificate. Check result: " + eCheckResult);
 //    }
 //    else
 //      LOGGER.info ("Successfully checked that the provided Peppol AP certificate is valid.");
 //
 //    // Must be set independent on the enabled/disable status
-//    // This must be changed for eB2B
 //    Phase4PeppolDefaultReceiverConfiguration.setAPCAChecker (aAPCAChecker);
 //
 //    // Eventually enable the receiver check, so that for each incoming request
 //    // the validity is crosscheck against the owning SMP
 //    final String sSMPURL = APConfig.getMySmpUrl ();
 //    final String sAPURL = AS4Configuration.getThisEndpointAddress ();
-//    if (StringHelper.hasText (sSMPURL) && StringHelper.hasText (sAPURL))
+//    if (StringHelper.isNotEmpty (sSMPURL) && StringHelper.isNotEmpty (sAPURL))
 //    {
 //      // To process the message even though the receiver is not registered in
 //      // our AP
 //      Phase4PeppolDefaultReceiverConfiguration.setReceiverCheckEnabled (true);
 //      Phase4PeppolDefaultReceiverConfiguration.setSMPClient (new SMPClientReadOnly (URLHelper.getAsURI (sSMPURL)));
-//      ////Phase4PeppolDefaultReceiverConfiguration.setWildcardSelectionMode (Phase4PeppolDefaultReceiverConfiguration.DEFAULT_WILDCARD_SELECTION_MODE);
 //      Phase4PeppolDefaultReceiverConfiguration.setAS4EndpointURL (sAPURL);
 //      Phase4PeppolDefaultReceiverConfiguration.setAPCertificate (aAPCert);
 //      LOGGER.info ("phase4 Peppol receiver checks are enabled");

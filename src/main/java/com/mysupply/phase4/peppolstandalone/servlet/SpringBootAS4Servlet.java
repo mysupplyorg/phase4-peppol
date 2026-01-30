@@ -16,6 +16,8 @@
  */
 package com.mysupply.phase4.peppolstandalone.servlet;
 
+import org.jspecify.annotations.NonNull;
+
 import com.helger.base.string.StringHelper;
 import com.helger.base.url.URLHelper;
 import com.helger.http.EHttpMethod;
@@ -30,12 +32,10 @@ import com.helger.phase4.peppol.servlet.Phase4PeppolServletMessageProcessorSPI;
 import com.helger.phase4.servlet.AS4UnifiedResponse;
 import com.helger.phase4.servlet.AS4XServletHandler;
 import com.helger.phase4.servlet.IAS4ServletRequestHandlerCustomizer;
-import com.helger.security.certificate.CertificateHelper;
+import com.helger.security.certificate.CertificateDecodeHelper;
 import com.helger.smpclient.peppol.SMPClientReadOnly;
 import com.helger.web.scope.IRequestWebScopeWithoutResponse;
 import com.helger.xservlet.AbstractXServlet;
-
-import jakarta.annotation.Nonnull;
 
 public class SpringBootAS4Servlet extends AbstractXServlet
 {
@@ -49,9 +49,9 @@ public class SpringBootAS4Servlet extends AbstractXServlet
     hdl.setRequestHandlerCustomizer (new IAS4ServletRequestHandlerCustomizer ()
     {
       @SuppressWarnings ("removal")
-      public void customizeBeforeHandling (@Nonnull final IRequestWebScopeWithoutResponse aRequestScope,
-                                           @Nonnull final AS4UnifiedResponse aUnifiedResponse,
-                                           @Nonnull final AS4RequestHandler aRequestHandler)
+      public void customizeBeforeHandling (@NonNull final IRequestWebScopeWithoutResponse aRequestScope,
+                                           @NonNull final AS4UnifiedResponse aUnifiedResponse,
+                                           @NonNull final AS4RequestHandler aRequestHandler)
       {
         final AS4CryptoFactoryInMemoryKeyStore aCryptoFactory = ServletConfig.getCryptoFactoryToUse ();
 
@@ -83,6 +83,7 @@ public class SpringBootAS4Servlet extends AbstractXServlet
 
         // Example code for changing the Peppol receiver data based on the
         // source URL
+        // Delete the block if you don't need it
         if (false)
         {
           final String sUrl = aRequestScope.getURLDecoded ();
@@ -96,10 +97,11 @@ public class SpringBootAS4Servlet extends AbstractXServlet
                                                                   .serviceMetadataProvider (new SMPClientReadOnly (URLHelper.getAsURI ("http://smp-prod.example.org")))
                                                                   ////.wildcardSelectionMode (Phase4PeppolDefaultReceiverConfiguration.DEFAULT_WILDCARD_SELECTION_MODE)
                                                                   .as4EndpointUrl ("https://ap-prod.example.org/as4")
-                                                                  .apCertificate (CertificateHelper.convertStringToCertficateOrNull ("....Public Prod AP Cert...."))
+                                                                  .apCertificate (new CertificateDecodeHelper ().source ("....Public Prod AP Cert....")
+                                                                                                                .pemEncoded (true)
+                                                                                                                .getDecodedOrNull ())
                                                                   .sbdhIdentifierFactoryPeppol ()
                                                                   .performSBDHValueChecks (Phase4PeppolDefaultReceiverConfiguration.isPerformSBDHValueChecks ())
-                                                                  .checkSBDHForMandatoryCountryC1 (Phase4PeppolDefaultReceiverConfiguration.isCheckSBDHForMandatoryCountryC1 ())
                                                                   .checkSigningCertificateRevocation (Phase4PeppolDefaultReceiverConfiguration.isCheckSigningCertificateRevocation ())
                                                                   .build ();
           }
@@ -110,10 +112,11 @@ public class SpringBootAS4Servlet extends AbstractXServlet
                                                                   .serviceMetadataProvider (new SMPClientReadOnly (URLHelper.getAsURI ("http://smp-test.example.org")))
                                                                   ////.wildcardSelectionMode (Phase4PeppolDefaultReceiverConfiguration.DEFAULT_WILDCARD_SELECTION_MODE)
                                                                   .as4EndpointUrl ("https://ap-test.example.org/as4")
-                                                                  .apCertificate (CertificateHelper.convertStringToCertficateOrNull ("....Public Test AP Cert...."))
+                                                                  .apCertificate (new CertificateDecodeHelper ().source ("....Public Test AP Cert....")
+                                                                                                                .pemEncoded (true)
+                                                                                                                .getDecodedOrNull ())
                                                                   .sbdhIdentifierFactoryPeppol ()
                                                                   .performSBDHValueChecks (Phase4PeppolDefaultReceiverConfiguration.isPerformSBDHValueChecks ())
-                                                                  .checkSBDHForMandatoryCountryC1 (Phase4PeppolDefaultReceiverConfiguration.isCheckSBDHForMandatoryCountryC1 ())
                                                                   .checkSigningCertificateRevocation (Phase4PeppolDefaultReceiverConfiguration.isCheckSigningCertificateRevocation ())
                                                                   .build ();
           }
@@ -124,9 +127,9 @@ public class SpringBootAS4Servlet extends AbstractXServlet
         }
       }
 
-      public void customizeAfterHandling (@Nonnull final IRequestWebScopeWithoutResponse aRequestScope,
-                                          @Nonnull final AS4UnifiedResponse aUnifiedResponse,
-                                          @Nonnull final AS4RequestHandler aRequestHandler)
+      public void customizeAfterHandling (@NonNull final IRequestWebScopeWithoutResponse aRequestScope,
+                                          @NonNull final AS4UnifiedResponse aUnifiedResponse,
+                                          @NonNull final AS4RequestHandler aRequestHandler)
       {
         // empty
       }

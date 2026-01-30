@@ -16,40 +16,32 @@
  */
 package com.mysupply.phase4.peppolstandalone.spi;
 
-
-
 import com.helger.annotation.style.IsSPIImplementation;
-
 import com.helger.http.header.HttpHeaderMap;
 import com.helger.security.certificate.CertificateHelper;
 import com.mysupply.phase4.ICountryCodeMapper;
 import com.mysupply.phase4.domain.Document;
 import com.mysupply.phase4.peppolstandalone.APConfig;
 import com.mysupply.phase4.peppolstandalone.context.SpringContextHolder;
-
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Configurable;
 import org.springframework.stereotype.Component;
 import org.unece.cefact.namespaces.sbdh.StandardBusinessDocument;
-
-import com.helger.collection.commons.ICommonsList;
 import com.helger.peppol.reporting.api.PeppolReportingItem;
 import com.helger.peppol.reporting.api.backend.PeppolReportingBackend;
 import com.helger.peppol.reporting.api.backend.PeppolReportingBackendException;
 import com.helger.peppol.sbdh.PeppolSBDHData;
 import com.helger.phase4.config.AS4Configuration;
-import com.helger.phase4.ebms3header.Ebms3Error;
 import com.helger.phase4.ebms3header.Ebms3UserMessage;
+import com.helger.phase4.error.AS4ErrorList;
 import com.helger.phase4.incoming.IAS4IncomingMessageMetadata;
 import com.helger.phase4.incoming.IAS4IncomingMessageState;
 import com.helger.phase4.peppol.servlet.IPhase4PeppolIncomingSBDHandlerSPI;
 import com.helger.phase4.peppol.servlet.Phase4PeppolServletMessageProcessorSPI;
 import com.mysupply.phase4.persistence.ISBDRepository;
-
-
-import jakarta.annotation.Nonnull;
 
 /**
  * This is a way of handling incoming Peppol messages
@@ -79,14 +71,14 @@ public class PeppolIncomingSBDHandlerSPI implements IPhase4PeppolIncomingSBDHand
         }
     }
 
-    public void handleIncomingSBD(@Nonnull final IAS4IncomingMessageMetadata aMessageMetadata,
-                                  @Nonnull final HttpHeaderMap aHeaders,
-                                  @Nonnull final Ebms3UserMessage aUserMessage,
-                                  @Nonnull final byte[] aSBDBytes,
-                                  @Nonnull final StandardBusinessDocument aSBD,
-                                  @Nonnull final PeppolSBDHData aPeppolSBD,
-                                  @Nonnull final IAS4IncomingMessageState aIncomingState,
-                                  @Nonnull final ICommonsList<Ebms3Error> aProcessingErrorMessages) throws Exception {
+    public void handleIncomingSBD(@NonNull final IAS4IncomingMessageMetadata aMessageMetadata,
+                                  @NonNull final HttpHeaderMap aHeaders,
+                                  @NonNull final Ebms3UserMessage aUserMessage,
+                                  @NonNull final byte [] aSBDBytes,
+                                  @NonNull final StandardBusinessDocument aSBD,
+                                  @NonNull final PeppolSBDHData aPeppolSBD,
+                                  @NonNull final IAS4IncomingMessageState aIncomingState,
+                                  @NonNull final AS4ErrorList aProcessingErrorMessages) throws Exception {
 
         // Ensure dependencies are autowired before use
         ensureAutowired();
