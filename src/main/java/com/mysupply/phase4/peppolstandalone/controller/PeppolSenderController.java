@@ -122,7 +122,7 @@ public class PeppolSenderController {
         }
 
         String senderValue = aData.getSenderValue();
-        if (!"0000:æøå".equalsIgnoreCase(senderValue))
+        if (!"0000:0000".equalsIgnoreCase(senderValue))
         {
             return ResponseEntity
                     .badRequest()
