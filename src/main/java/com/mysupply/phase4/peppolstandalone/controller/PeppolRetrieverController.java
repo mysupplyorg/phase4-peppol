@@ -23,6 +23,9 @@ import com.mysupply.phase4.domain.*;
 import com.mysupply.phase4.peppolstandalone.APConfig;
 import com.mysupply.phase4.peppolstandalone.dto.*;
 import com.mysupply.phase4.persistence.ISBDRepository;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.Query;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +34,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +51,9 @@ public class PeppolRetrieverController {
 
     @Autowired
     private ISBDRepository sbdRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -242,17 +250,73 @@ public class PeppolRetrieverController {
 
     /// Gets all documents in the database for admin overview (without the actual data content).
     @GetMapping(path = "/viewDocuments", produces = MediaType.TEXT_HTML_VALUE)
-    public ResponseEntity<String> viewDocuments(@RequestParam("token") final String token) {
+    public ResponseEntity<String> viewDocuments(@RequestParam("token") final String token,
+                                                @RequestParam(value = "status", required = false) final String status,
+                                                @RequestParam(value = "domain", required = false) final String domain,
+                                                @RequestParam(value = "sender", required = false) final String sender,
+                                                @RequestParam(value = "receiver", required = false) final String receiver,
+                                                @RequestParam(value = "docType", required = false) final String docType,
+                                                @RequestParam(value = "process", required = false) final String process,
+                                                @RequestParam(value = "protocol", required = false) final String protocol,
+                                                @RequestParam(value = "conversationId", required = false) final String conversationId,
+                                                @RequestParam(value = "messageId", required = false) final String messageId,
+                                                @RequestParam(value = "beforeTimestamp", required = false) final String beforeTimestampStr,
+                                                @RequestParam(value = "pageSize", required = false, defaultValue = "1000") final int pageSize) {
         ResponseEntity<String> errorResponse = this.validateToken(token);
         if (errorResponse != null) {
             return errorResponse;
         }
 
         try {
-            List<DocumentOverview> overviews = this.sbdRepository.findAllDocumentOverviews();
-            long totalCount = overviews.size();
-            long pendingCount = overviews.stream().filter(d -> d.getRetrieved() == null).count();
-            long retrievedCount = overviews.stream().filter(d -> d.getRetrieved() != null).count();
+            // Normalize empty strings to null for proper SQL handling
+            String statusFilter = normalizeFilter(status);
+            String domainFilter = normalizeFilter(domain);
+            String senderFilter = normalizeFilter(sender);
+            String receiverFilter = normalizeFilter(receiver);
+            String docTypeFilter = normalizeFilter(docType);
+            String processFilter = normalizeFilter(process);
+            String protocolFilter = normalizeFilter(protocol);
+            String conversationIdFilter = normalizeFilter(conversationId);
+            String messageIdFilter = normalizeFilter(messageId);
+
+            // Parse beforeTimestamp for pagination (cursor-based)
+            OffsetDateTime beforeTimestamp = null;
+            if (beforeTimestampStr != null && !beforeTimestampStr.isEmpty()) {
+                beforeTimestamp = OffsetDateTime.parse(beforeTimestampStr);
+            }
+
+            // Check if any filters are active
+            boolean hasFilters = statusFilter != null || domainFilter != null || senderFilter != null ||
+                                 receiverFilter != null || docTypeFilter != null || processFilter != null ||
+                                 protocolFilter != null || conversationIdFilter != null || messageIdFilter != null;
+
+            // Limit page size to prevent overload
+            int effectivePageSize = Math.min(Math.max(pageSize, 10), 1000);
+
+            // Get paginated results using EntityManager native queries
+            List<Object[]> rawResults = executeDocumentQuery(
+                hasFilters, statusFilter, domainFilter, senderFilter, receiverFilter,
+                docTypeFilter, processFilter, protocolFilter, conversationIdFilter, messageIdFilter,
+                beforeTimestamp, effectivePageSize
+            );
+
+            long totalCount = executeCountQuery(
+                hasFilters, statusFilter, domainFilter, senderFilter, receiverFilter,
+                docTypeFilter, processFilter, protocolFilter, conversationIdFilter, messageIdFilter
+            );
+
+            List<DocumentOverview> overviews = convertToDocumentOverviews(rawResults);
+
+            long totalPendingCount = executeSimpleCountQuery("SELECT COUNT(*) FROM phase4_documents.document WHERE retrieved IS NULL");
+            long totalRetrievedCount = executeSimpleCountQuery("SELECT COUNT(*) FROM phase4_documents.document WHERE retrieved IS NOT NULL");
+            long totalAllDocuments = totalPendingCount + totalRetrievedCount;
+
+            // Check if there are more results for pagination
+            boolean hasMoreResults = overviews.size() == effectivePageSize;
+            OffsetDateTime lastTimestamp = null;
+            if (!overviews.isEmpty()) {
+                lastTimestamp = overviews.get(overviews.size() - 1).getCreated();
+            }
 
             StringBuilder html = new StringBuilder();
             html.append("<!DOCTYPE html><html lang=\"en\"><head>");
@@ -268,6 +332,20 @@ public class PeppolRetrieverController {
             html.append(".stat-card .number { font-size: 36px; font-weight: bold; color: #333; }");
             html.append(".stat-card.pending .number { color: #ff9800; }");
             html.append(".stat-card.retrieved .number { color: #4CAF50; }");
+            html.append(".search-form { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }");
+            html.append(".search-form h3 { margin-top: 0; color: #333; }");
+            html.append(".search-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; }");
+            html.append(".search-field { display: flex; flex-direction: column; }");
+            html.append(".search-field label { font-size: 12px; color: #666; margin-bottom: 4px; }");
+            html.append(".search-field input, .search-field select { padding: 8px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }");
+            html.append(".search-field input:focus, .search-field select:focus { outline: none; border-color: #4CAF50; }");
+            html.append(".search-buttons { margin-top: 15px; display: flex; gap: 10px; }");
+            html.append(".search-btn { padding: 10px 20px; background-color: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }");
+            html.append(".search-btn:hover { background-color: #45a049; }");
+            html.append(".clear-btn { padding: 10px 20px; background-color: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }");
+            html.append(".clear-btn:hover { background-color: #da190b; }");
+            html.append(".active-filters { background: #e8f5e9; padding: 10px 15px; border-radius: 4px; margin-bottom: 20px; }");
+            html.append(".active-filters span { background: #4CAF50; color: white; padding: 3px 8px; border-radius: 3px; margin-right: 8px; font-size: 12px; }");
             html.append(".table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }");
             html.append("table { border-collapse: collapse; }");
             html.append("th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #ddd; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }");
@@ -286,14 +364,93 @@ public class PeppolRetrieverController {
             html.append(".filter-row input { background: #e8f5e9; }");
             html.append("</style></head><body>");
             html.append("<h1>Document Database Status</h1>");
-            html.append("<a class=\"refresh-btn\" href=\"javascript:location.reload()\">🔄 Refresh</a>");
+            html.append("<a class=\"refresh-btn\" href=\"viewDocuments?token=").append(token).append("\">🔄 Refresh / Clear Filters</a>");
+
+            // Search form
+            html.append("<div class=\"search-form\">");
+            html.append("<h3>🔍 Database Search</h3>");
+            html.append("<form method=\"get\" action=\"viewDocuments\">");
+            html.append("<input type=\"hidden\" name=\"token\" value=\"").append(escapeHtml(token)).append("\">");
+            html.append("<div class=\"search-grid\">");
+            html.append("<div class=\"search-field\"><label>Status</label><select name=\"status\">");
+            html.append("<option value=\"\">All</option>");
+            html.append("<option value=\"pending\"").append("pending".equals(status) ? " selected" : "").append(">Pending</option>");
+            html.append("<option value=\"retrieved\"").append("retrieved".equals(status) ? " selected" : "").append(">Retrieved</option>");
+            html.append("</select></div>");
+            html.append("<div class=\"search-field\"><label>Domain</label><input type=\"text\" name=\"domain\" value=\"").append(domain != null ? escapeHtml(domain) : "").append("\" placeholder=\"Search domain...\"></div>");
+            html.append("<div class=\"search-field\"><label>Sender</label><input type=\"text\" name=\"sender\" value=\"").append(sender != null ? escapeHtml(sender) : "").append("\" placeholder=\"Search sender...\"></div>");
+            html.append("<div class=\"search-field\"><label>Receiver</label><input type=\"text\" name=\"receiver\" value=\"").append(receiver != null ? escapeHtml(receiver) : "").append("\" placeholder=\"Search receiver...\"></div>");
+            html.append("<div class=\"search-field\"><label>Doc Type</label><input type=\"text\" name=\"docType\" value=\"").append(docType != null ? escapeHtml(docType) : "").append("\" placeholder=\"Search doc type...\"></div>");
+            html.append("<div class=\"search-field\"><label>Process</label><input type=\"text\" name=\"process\" value=\"").append(process != null ? escapeHtml(process) : "").append("\" placeholder=\"Search process...\"></div>");
+            html.append("<div class=\"search-field\"><label>Protocol</label><input type=\"text\" name=\"protocol\" value=\"").append(protocol != null ? escapeHtml(protocol) : "").append("\" placeholder=\"Search protocol...\"></div>");
+            html.append("<div class=\"search-field\"><label>Conversation ID</label><input type=\"text\" name=\"conversationId\" value=\"").append(conversationId != null ? escapeHtml(conversationId) : "").append("\" placeholder=\"Search conversation ID...\"></div>");
+            html.append("<div class=\"search-field\"><label>Message ID</label><input type=\"text\" name=\"messageId\" value=\"").append(messageId != null ? escapeHtml(messageId) : "").append("\" placeholder=\"Search message ID...\"></div>");
+            html.append("</div>");
+            html.append("<div class=\"search-buttons\">");
+            html.append("<button type=\"submit\" class=\"search-btn\">🔍 Search</button>");
+            html.append("<a href=\"viewDocuments?token=").append(token).append("\" class=\"clear-btn\">✕ Clear Filters</a>");
+            html.append("</div></form></div>");
+
+            // Show active filters
+            if (hasFilters) {
+                html.append("<div class=\"active-filters\"><strong>Active filters:</strong> ");
+                if (statusFilter != null) html.append("<span>Status: ").append(escapeHtml(statusFilter)).append("</span>");
+                if (domainFilter != null) html.append("<span>Domain: ").append(escapeHtml(domainFilter)).append("</span>");
+                if (senderFilter != null) html.append("<span>Sender: ").append(escapeHtml(senderFilter)).append("</span>");
+                if (receiverFilter != null) html.append("<span>Receiver: ").append(escapeHtml(receiverFilter)).append("</span>");
+                if (docTypeFilter != null) html.append("<span>Doc Type: ").append(escapeHtml(docTypeFilter)).append("</span>");
+                if (processFilter != null) html.append("<span>Process: ").append(escapeHtml(processFilter)).append("</span>");
+                if (protocolFilter != null) html.append("<span>Protocol: ").append(escapeHtml(protocolFilter)).append("</span>");
+                if (conversationIdFilter != null) html.append("<span>Conversation ID: ").append(escapeHtml(conversationIdFilter)).append("</span>");
+                if (messageIdFilter != null) html.append("<span>Message ID: ").append(escapeHtml(messageIdFilter)).append("</span>");
+                html.append("</div>");
+            }
 
             // Stats cards
             html.append("<div class=\"stats-container\">");
-            html.append("<div class=\"stat-card\"><h3>Total Documents</h3><div class=\"number\">").append(totalCount).append("</div></div>");
-            html.append("<div class=\"stat-card pending\"><h3>Pending (Not Retrieved)</h3><div class=\"number\">").append(pendingCount).append("</div></div>");
-            html.append("<div class=\"stat-card retrieved\"><h3>Retrieved</h3><div class=\"number\">").append(retrievedCount).append("</div></div>");
+            html.append("<div class=\"stat-card\"><h3>Total Documents</h3><div class=\"number\">").append(totalAllDocuments).append("</div></div>");
+            html.append("<div class=\"stat-card pending\"><h3>Pending (Not Retrieved)</h3><div class=\"number\">").append(totalPendingCount).append("</div></div>");
+            html.append("<div class=\"stat-card retrieved\"><h3>Retrieved</h3><div class=\"number\">").append(totalRetrievedCount).append("</div></div>");
+            if (hasFilters) {
+                html.append("<div class=\"stat-card\"><h3>Matching Filter</h3><div class=\"number\">").append(totalCount).append("</div></div>");
+            }
             html.append("</div>");
+
+            // Pagination info
+            html.append("<div class=\"pagination-info\" style=\"margin-bottom: 15px; padding: 10px 15px; background: white; border-radius: 4px; display: flex; justify-content: space-between; align-items: center;\">");
+            html.append("<span>Showing ").append(overviews.size()).append(" of ").append(totalCount).append(" documents (Page size: ").append(effectivePageSize).append(")</span>");
+            html.append("<div>");
+            if (beforeTimestamp != null) {
+                // Build URL without beforeTimestamp to go back to first page
+                html.append("<a href=\"viewDocuments?token=").append(token);
+                if (statusFilter != null) html.append("&status=").append(escapeHtml(statusFilter));
+                if (domainFilter != null) html.append("&domain=").append(escapeHtml(domainFilter));
+                if (senderFilter != null) html.append("&sender=").append(escapeHtml(senderFilter));
+                if (receiverFilter != null) html.append("&receiver=").append(escapeHtml(receiverFilter));
+                if (docTypeFilter != null) html.append("&docType=").append(escapeHtml(docTypeFilter));
+                if (processFilter != null) html.append("&process=").append(escapeHtml(processFilter));
+                if (protocolFilter != null) html.append("&protocol=").append(escapeHtml(protocolFilter));
+                if (conversationIdFilter != null) html.append("&conversationId=").append(escapeHtml(conversationIdFilter));
+                if (messageIdFilter != null) html.append("&messageId=").append(escapeHtml(messageIdFilter));
+                html.append("&pageSize=").append(effectivePageSize);
+                html.append("\" class=\"search-btn\" style=\"margin-right: 10px;\">⏮ First Page</a>");
+            }
+            if (hasMoreResults && lastTimestamp != null) {
+                html.append("<a href=\"viewDocuments?token=").append(token);
+                if (statusFilter != null) html.append("&status=").append(escapeHtml(statusFilter));
+                if (domainFilter != null) html.append("&domain=").append(escapeHtml(domainFilter));
+                if (senderFilter != null) html.append("&sender=").append(escapeHtml(senderFilter));
+                if (receiverFilter != null) html.append("&receiver=").append(escapeHtml(receiverFilter));
+                if (docTypeFilter != null) html.append("&docType=").append(escapeHtml(docTypeFilter));
+                if (processFilter != null) html.append("&process=").append(escapeHtml(processFilter));
+                if (protocolFilter != null) html.append("&protocol=").append(escapeHtml(protocolFilter));
+                if (conversationIdFilter != null) html.append("&conversationId=").append(escapeHtml(conversationIdFilter));
+                if (messageIdFilter != null) html.append("&messageId=").append(escapeHtml(messageIdFilter));
+                html.append("&beforeTimestamp=").append(lastTimestamp.toString());
+                html.append("&pageSize=").append(effectivePageSize);
+                html.append("\" class=\"search-btn\">Next Page ⏭</a>");
+            }
+            html.append("</div></div>");
 
             // Documents table with all columns
             html.append("<div class=\"table-container\">");
@@ -348,7 +505,7 @@ public class PeppolRetrieverController {
             } else {
                 DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss").withZone(java.time.ZoneId.systemDefault());
                 for (DocumentOverview doc : overviews) {
-                    String status = doc.getRetrieved() != null ? "Retrieved" : "Pending";
+                    String docStatus = doc.getRetrieved() != null ? "Retrieved" : "Pending";
                     String statusClass = doc.getRetrieved() != null ? "status-retrieved" : "status-pending";
                     String created = doc.getCreated() != null ? dtf.format(doc.getCreated()) : "-";
                     String retrieved = doc.getRetrieved() != null ? dtf.format(doc.getRetrieved()) : "-";
@@ -359,7 +516,7 @@ public class PeppolRetrieverController {
 
                     html.append("<tr>");
                     html.append("<td><a class=\"download-btn\" href=\"").append(downloadUrl).append("\" title=\"Download XML\">⬇ Download</a></td>");
-                    html.append("<td class=\"").append(statusClass).append("\">").append(status).append("</td>");
+                    html.append("<td class=\"").append(statusClass).append("\">").append(docStatus).append("</td>");
                     html.append("<td>").append(created).append("</td>");
                     html.append("<td class=\"id-cell\">").append(fullId).append("</td>");
                     html.append("<td>").append(escapeHtml(doc.getDomain())).append("</td>");
@@ -462,6 +619,200 @@ public class PeppolRetrieverController {
     private String escapeHtml(String text) {
         if (text == null) return "-";
         return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;");
+    }
+
+    /**
+     * Normalizes filter values by converting empty/blank strings to null.
+     * This ensures that empty form fields are treated as "no filter" rather than filtering for empty values.
+     */
+    private String normalizeFilter(String value) {
+        if (value == null || value.trim().isEmpty()) {
+            return null;
+        }
+        return value.trim();
+    }
+
+    /**
+     * Converts raw Object[] results from native query to DocumentOverview objects.
+     */
+    private List<DocumentOverview> convertToDocumentOverviews(List<Object[]> rawResults) {
+        List<DocumentOverview> overviews = new java.util.ArrayList<>();
+        for (Object[] row : rawResults) {
+            DocumentOverview overview = new DocumentOverview();
+            overview.setId(row[0] != null ? (UUID) row[0] : null);
+            overview.setCreated(convertToOffsetDateTime(row[1]));
+            overview.setDomain(row[2] != null ? (String) row[2] : null);
+            overview.setSenderIdentifier(row[3] != null ? (String) row[3] : null);
+            overview.setReceiverIdentifier(row[4] != null ? (String) row[4] : null);
+            overview.setDocType(row[5] != null ? (String) row[5] : null);
+            overview.setProcess(row[6] != null ? (String) row[6] : null);
+            overview.setProtocol(row[7] != null ? (String) row[7] : null);
+            overview.setConversationId(row[8] != null ? (String) row[8] : null);
+            overview.setMessageId(row[9] != null ? (String) row[9] : null);
+            overview.setRetrieved(convertToOffsetDateTime(row[10]));
+            overview.setVaxId(row[11] != null ? (UUID) row[11] : null);
+            overview.setRetrievedByInstanceName(row[12] != null ? (String) row[12] : null);
+            overview.setRetrievedByConnectorId(row[13] != null ? (UUID) row[13] : null);
+            overview.setRetrievedByConnectorName(row[14] != null ? (String) row[14] : null);
+            overview.setDataSize(row[15] != null ? ((Number) row[15]).longValue() : 0L);
+            overviews.add(overview);
+        }
+        return overviews;
+    }
+
+    /**
+     * Converts a timestamp object (either Timestamp or Instant) to OffsetDateTime.
+     */
+    private OffsetDateTime convertToOffsetDateTime(Object timestamp) {
+        if (timestamp == null) {
+            return null;
+        }
+        if (timestamp instanceof java.sql.Timestamp) {
+            return ((java.sql.Timestamp) timestamp).toInstant().atOffset(java.time.ZoneOffset.UTC);
+        } else if (timestamp instanceof java.time.Instant) {
+            return ((java.time.Instant) timestamp).atOffset(java.time.ZoneOffset.UTC);
+        } else if (timestamp instanceof OffsetDateTime) {
+            return (OffsetDateTime) timestamp;
+        } else {
+            LOGGER.warn("Unexpected timestamp type: {}", timestamp.getClass().getName());
+            return null;
+        }
+    }
+
+    /**
+     * Executes a document query using EntityManager to avoid Spring Data JPA/Hibernate compatibility issues.
+     */
+    @SuppressWarnings("unchecked")
+    private List<Object[]> executeDocumentQuery(boolean hasFilters, String status, String domain, String sender,
+                                                 String receiver, String docType, String process, String protocol,
+                                                 String conversationId, String messageId,
+                                                 OffsetDateTime beforeTimestamp, int pageSize) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT d.id, d.created, d.domain, d.sender_identifier, d.receiver_identifier, ");
+        sql.append("d.doc_type, d.process, d.protocol, d.conversation_id, d.message_id, ");
+        sql.append("d.retrieved, d.vax_id, d.retrieved_by_instance_name, d.retrieved_by_connector_id, ");
+        sql.append("d.retrieved_by_connector_name, d.data_size ");
+        sql.append("FROM phase4_documents.document d WHERE 1=1 ");
+
+        if (hasFilters) {
+            if (status != null) {
+                if ("pending".equals(status)) {
+                    sql.append("AND d.retrieved IS NULL ");
+                } else if ("retrieved".equals(status)) {
+                    sql.append("AND d.retrieved IS NOT NULL ");
+                }
+            }
+            if (domain != null) {
+                sql.append("AND LOWER(d.domain) LIKE LOWER(:domain) ");
+            }
+            if (sender != null) {
+                sql.append("AND LOWER(d.sender_identifier) LIKE LOWER(:sender) ");
+            }
+            if (receiver != null) {
+                sql.append("AND LOWER(d.receiver_identifier) LIKE LOWER(:receiver) ");
+            }
+            if (docType != null) {
+                sql.append("AND LOWER(d.doc_type) LIKE LOWER(:docType) ");
+            }
+            if (process != null) {
+                sql.append("AND LOWER(d.process) LIKE LOWER(:process) ");
+            }
+            if (protocol != null) {
+                sql.append("AND LOWER(d.protocol) LIKE LOWER(:protocol) ");
+            }
+            if (conversationId != null) {
+                sql.append("AND LOWER(d.conversation_id) LIKE LOWER(:conversationId) ");
+            }
+            if (messageId != null) {
+                sql.append("AND LOWER(d.message_id) LIKE LOWER(:messageId) ");
+            }
+        }
+
+        if (beforeTimestamp != null) {
+            sql.append("AND d.created < :beforeTimestamp ");
+        }
+
+        sql.append("ORDER BY d.created DESC LIMIT :pageSize");
+
+        Query query = entityManager.createNativeQuery(sql.toString());
+
+        if (domain != null) query.setParameter("domain", "%" + domain + "%");
+        if (sender != null) query.setParameter("sender", "%" + sender + "%");
+        if (receiver != null) query.setParameter("receiver", "%" + receiver + "%");
+        if (docType != null) query.setParameter("docType", "%" + docType + "%");
+        if (process != null) query.setParameter("process", "%" + process + "%");
+        if (protocol != null) query.setParameter("protocol", "%" + protocol + "%");
+        if (conversationId != null) query.setParameter("conversationId", "%" + conversationId + "%");
+        if (messageId != null) query.setParameter("messageId", "%" + messageId + "%");
+        if (beforeTimestamp != null) query.setParameter("beforeTimestamp", beforeTimestamp);
+        query.setParameter("pageSize", pageSize);
+
+        return query.getResultList();
+    }
+
+    /**
+     * Executes a count query using EntityManager.
+     */
+    private long executeCountQuery(boolean hasFilters, String status, String domain, String sender,
+                                   String receiver, String docType, String process, String protocol,
+                                   String conversationId, String messageId) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(*) FROM phase4_documents.document d WHERE 1=1 ");
+
+        if (hasFilters) {
+            if (status != null) {
+                if ("pending".equals(status)) {
+                    sql.append("AND d.retrieved IS NULL ");
+                } else if ("retrieved".equals(status)) {
+                    sql.append("AND d.retrieved IS NOT NULL ");
+                }
+            }
+            if (domain != null) {
+                sql.append("AND LOWER(d.domain) LIKE LOWER(:domain) ");
+            }
+            if (sender != null) {
+                sql.append("AND LOWER(d.sender_identifier) LIKE LOWER(:sender) ");
+            }
+            if (receiver != null) {
+                sql.append("AND LOWER(d.receiver_identifier) LIKE LOWER(:receiver) ");
+            }
+            if (docType != null) {
+                sql.append("AND LOWER(d.doc_type) LIKE LOWER(:docType) ");
+            }
+            if (process != null) {
+                sql.append("AND LOWER(d.process) LIKE LOWER(:process) ");
+            }
+            if (protocol != null) {
+                sql.append("AND LOWER(d.protocol) LIKE LOWER(:protocol) ");
+            }
+            if (conversationId != null) {
+                sql.append("AND LOWER(d.conversation_id) LIKE LOWER(:conversationId) ");
+            }
+            if (messageId != null) {
+                sql.append("AND LOWER(d.message_id) LIKE LOWER(:messageId) ");
+            }
+        }
+
+        Query query = entityManager.createNativeQuery(sql.toString());
+
+        if (domain != null) query.setParameter("domain", "%" + domain + "%");
+        if (sender != null) query.setParameter("sender", "%" + sender + "%");
+        if (receiver != null) query.setParameter("receiver", "%" + receiver + "%");
+        if (docType != null) query.setParameter("docType", "%" + docType + "%");
+        if (process != null) query.setParameter("process", "%" + process + "%");
+        if (protocol != null) query.setParameter("protocol", "%" + protocol + "%");
+        if (conversationId != null) query.setParameter("conversationId", "%" + conversationId + "%");
+        if (messageId != null) query.setParameter("messageId", "%" + messageId + "%");
+
+        return ((Number) query.getSingleResult()).longValue();
+    }
+
+    /**
+     * Executes a simple count query.
+     */
+    private long executeSimpleCountQuery(String sql) {
+        Query query = entityManager.createNativeQuery(sql);
+        return ((Number) query.getSingleResult()).longValue();
     }
 
     private String formatBytes(long bytes) {
