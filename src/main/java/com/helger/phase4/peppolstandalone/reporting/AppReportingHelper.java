@@ -84,8 +84,7 @@ public final class AppReportingHelper
     return YearMonth.of (nYear, nMonth);
   }
 
-  @Nullable
-  public static TransactionStatisticsReportType createTSR (@NonNull final YearMonth aYearMonth) throws PeppolReportingBackendException
+  public static TransactionStatisticsReportType createTSR (@NonNull final YearMonth aYearMonth) throws PeppolReportingBackendException, IllegalStateException
   {
     LOGGER.info ("Trying to create Peppol Reporting TSR for " + aYearMonth);
 
@@ -104,11 +103,11 @@ public final class AppReportingHelper
                                         .reportingItemList (aReportingItems)
                                         .build ();
     }
-    return null;
+
+    throw new IllegalStateException("Failed to build Transaction Statistics Report.");
   }
 
-  @Nullable
-  public static EndUserStatisticsReportType createEUSR (@NonNull final YearMonth aYearMonth) throws PeppolReportingBackendException
+  public static EndUserStatisticsReportType createEUSR (@NonNull final YearMonth aYearMonth) throws PeppolReportingBackendException, IllegalStateException
   {
     LOGGER.info ("Trying to create Peppol Reporting EUSR for " + aYearMonth);
 
@@ -127,7 +126,8 @@ public final class AppReportingHelper
                                     .reportingItemList (aReportingItems)
                                     .build ();
     }
-    return null;
+
+    throw new IllegalStateException("Failed to build End User Statistics Report.");
   }
 
   /**
