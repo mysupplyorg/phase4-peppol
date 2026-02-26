@@ -16,6 +16,7 @@
  */
 package com.mysupply.phase4.peppolstandalone.servlet;
 
+import com.helger.phase4.config.AS4Configuration;
 import org.jspecify.annotations.NonNull;
 
 import com.helger.base.string.StringHelper;
@@ -57,6 +58,11 @@ public class SpringBootAS4Servlet extends AbstractXServlet
 
         // This method refers to the outer static method
         aRequestHandler.setCryptoFactory (aCryptoFactory);
+
+        final boolean performSBDHValueChecks = AS4Configuration
+                .getConfig()
+                .getAsBoolean("peppol.rceiver.PerformSBDHValueChecks", true);
+        Phase4PeppolDefaultReceiverConfiguration.setPerformSBDHValueChecks(performSBDHValueChecks);
 
         // by Philip Helger
         aRequestHandler.getProcessorOfType (Phase4PeppolServletMessageProcessorSPI.class)
